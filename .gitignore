@@ -1,0 +1,31 @@
+# =========================
+# SEGREDOS E DADOS SENSÍVEIS
+# =========================
+.env
+dataset_Facebook.csv
+
+# =========================
+# MODELOS DE MACHINE LEARNING
+# =========================
+# Ignora todos os ficheiros pesados gerados pelo Scikit-Learn/PyTorch
+*.pkl
+models/*.pkl
+
+# =========================
+# CACHE DO PYTHON E AMBIENTES
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+venv/
+env/
+.env/
+
+# =========================
+# EDITORES E SISTEMA OPERATIVO
+# =========================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

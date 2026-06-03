@@ -1,0 +1,19 @@
+gunicorn
+flask
+pandas
+numpy<2.0.0
+joblib
+scikit-learn==1.7.2
+opencv-python-headless
+pymssql
+python-dotenv
+apify-client
+requests
+Pillow
+--find-links https://download.pytorch.org/whl/cpu/torch_stable.html
+torch==2.1.0+cpu
+torchvision==0.16.0+cpu
+beautifulsoup4
+lxml
+Flask==3.0.0
+Werkzeug==3.0.0
