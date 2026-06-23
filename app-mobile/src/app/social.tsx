@@ -51,10 +51,13 @@ export default function Social() {
       if (imagem) {
         const filename = imagem.split('/').pop() || 'upload.jpg';
         const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : `image`;
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-        // @ts-ignore - FormData no React Native aceita este objeto para ficheiros
-        formData.append('imagem_post', { uri: imagem, name: filename, type });
+        formData.append('imagem_post', {
+          uri: imagem,
+          name: filename,
+          type: type
+        } as any);
       }
 
       const response = await fetch(`${API_URL}/prever_social`, {
