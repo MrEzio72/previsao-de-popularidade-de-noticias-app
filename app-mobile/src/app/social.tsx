@@ -312,11 +312,11 @@ export default function Social() {
             <Text style={[styles.iaInfo, { marginBottom: 12 }]}>Motor Visual: {resultado.iaVisual || resultado.ia_visual}</Text>
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{temImagem ? resultado.rostos : 'N/A'}</Text>
+                <Text style={styles.statValue}>{resultado.rostos !== undefined ? resultado.rostos : 'N/A'}</Text>
                 <Text style={styles.statLabel}>Rostos</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{temImagem ? resultado.brilho : 'N/A'}</Text>
+                <Text style={styles.statValue}>{resultado.brilho !== undefined ? resultado.brilho : 'N/A'}</Text>
                 <Text style={styles.statLabel}>Brilho</Text>
               </View>
             </View>
