@@ -20,7 +20,21 @@ export default function Social() {
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
 
-  const temImagem = resultado ? (resultado.has_image || (imagem !== null && resultado.brilho !== undefined)) : false;
+  const obterRostos = () => {
+    if (!resultado) return 'N/A';
+    if (resultado.rostos !== undefined && resultado.rostos !== null) return resultado.rostos;
+    const match = String(resultado.contexto_ia || '').match(/(\d+)\s+rostos/i);
+    return match ? match[1] : 'N/A';
+  };
+
+  const obterBrilho = () => {
+    if (!resultado) return 'N/A';
+    if (resultado.brilho !== undefined && resultado.brilho !== null) {
+      return String(resultado.brilho).includes('/255') ? resultado.brilho : `${resultado.brilho}/255`;
+    }
+    const match = String(resultado.contexto_ia || '').match(/brilho\s+de\s+([^\s\.\,\|]+)/i);
+    return match ? match[1] : 'N/A';
+  };
 
   // Estados para feedback manual
   const [mostrarFeedback, setMostrarFeedback] = useState(false);
@@ -312,11 +326,11 @@ export default function Social() {
             <Text style={[styles.iaInfo, { marginBottom: 12 }]}>Motor Visual: {resultado.iaVisual || resultado.ia_visual}</Text>
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{resultado.rostos !== undefined ? resultado.rostos : 'N/A'}</Text>
+                <Text style={styles.statValue}>{obterRostos()}</Text>
                 <Text style={styles.statLabel}>Rostos</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{resultado.brilho !== undefined ? resultado.brilho : 'N/A'}</Text>
+                <Text style={styles.statValue}>{obterBrilho()}</Text>
                 <Text style={styles.statLabel}>Brilho</Text>
               </View>
             </View>
