@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 
 const API_URL = 'https://tthheodor-previsao-popularidade.hf.space';
@@ -24,11 +24,13 @@ export default function Historico() {
   const [selectedFeedback, setSelectedFeedback] = useState<{ [key: string]: 'Alta' | 'Médio' | 'Baixa' }>({});
   const [submittingFeedback, setSubmittingFeedback] = useState<{ [key: string]: boolean }>({});
 
-  useEffect(() => {
-    if (userToken) {
-      carregarHistorico();
-    }
-  }, [userToken]);
+  useFocusEffect(
+    useCallback(() => {
+      if (userToken) {
+        carregarHistorico();
+      }
+    }, [userToken])
+  );
 
   if (!userToken) {
     return (
@@ -180,8 +182,8 @@ export default function Historico() {
 
   const renderItem = ({ item }: { item: PredictionItem }) => {
     const borderLeftColor = 
-      item.previsao_ia === 'Alta' ? '#2e7d32' : 
-      item.previsao_ia === 'Baixa' ? '#c62828' : '#f57c00';
+      item.previsao_ia?.toLowerCase().trim() === 'alta' ? '#2e7d32' : 
+      item.previsao_ia?.toLowerCase().trim() === 'baixa' ? '#c62828' : '#f57c00';
 
     return (
       <View style={[styles.card, { borderLeftColor }]}>
@@ -209,9 +211,10 @@ export default function Historico() {
             <Text style={styles.predictionLabel}>Previsão IA:</Text>
             <Text style={[
               styles.predictionValue,
-              item.previsao_ia === 'Alta' ? { color: '#2e7d32' } : item.previsao_ia === 'Baixa' ? { color: '#c62828' } : { color: '#f57c00' }
+              item.previsao_ia?.toLowerCase().trim() === 'alta' ? { color: '#2e7d32' } : 
+              item.previsao_ia?.toLowerCase().trim() === 'baixa' ? { color: '#c62828' } : { color: '#f57c00' }
             ]}>
-              {item.previsao_ia}
+              {item.previsao_ia ? item.previsao_ia.charAt(0).toUpperCase() + item.previsao_ia.slice(1).toLowerCase() : ''}
             </Text>
           </View>
 

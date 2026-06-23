@@ -159,9 +159,10 @@ export default function Noticias() {
             <Text style={styles.resultLabel}>Previsão de Popularidade:</Text>
             <Text style={[
               styles.resultValue, 
-              resultado.previsao === 'Alta' ? {color: '#2e7d32'} : resultado.previsao === 'Baixa' ? {color: '#c62828'} : {color: '#f57c00'}
+              resultado.previsao?.toLowerCase().trim() === 'alta' ? {color: '#2e7d32'} : 
+              resultado.previsao?.toLowerCase().trim() === 'baixa' ? {color: '#c62828'} : {color: '#f57c00'}
             ]}>
-              {resultado.previsao}
+              {resultado.previsao ? resultado.previsao.charAt(0).toUpperCase() + resultado.previsao.slice(1).toLowerCase() : ''}
             </Text>
           </View>
 
