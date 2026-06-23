@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Image, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
@@ -78,9 +79,17 @@ export default function Social() {
           imageUri = `file://${imageUri}`;
         }
 
-        const uploadResult = await FileSystem.uploadAsync(
-          `${API_URL}/prever_social`,
+        console.log('Comprimindo imagem antes do upload...', imageUri);
+        const imagemComprimida = await ImageManipulator.manipulateAsync(
           imageUri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        console.log('Imagem comprimida criada em:', imagemComprimida.uri);
+
+        const response = await FileSystem.uploadAsync(
+          `${API_URL}/prever_social`,
+          imagemComprimida.uri,
           {
             fieldName: 'imagem_post',
             httpMethod: 'POST',
@@ -96,8 +105,15 @@ export default function Social() {
             },
           }
         );
-        console.log('Resposta do FileSystem.uploadAsync recebida com status:', uploadResult.status);
-        data = JSON.parse(uploadResult.body);
+
+        console.log("STATUS CODE:", response.status);
+        console.log("RESPOSTA DO SERVIDOR:", response.body);
+
+        if (response.status !== 200) {
+          throw new Error(`Erro do Servidor: Status ${response.status}. Detalhe: ${response.body}`);
+        }
+
+        data = JSON.parse(response.body);
       } else {
         // Envio tradicional via fetch com FormData (sem cabeçalho Content-Type definido manualmente)
         console.log('Iniciando envio tradicional para /prever_social (sem imagem)...');
@@ -154,7 +170,8 @@ export default function Social() {
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('Erro de Ligação', 'Não foi possível ligar ao servidor. Garante que o servidor Flask está a correr na porta 7860.');
+      const errMsg = error instanceof Error ? error.message : String(error);
+      Alert.alert("Erro de Submissão", errMsg);
     } finally {
       setLoading(false);
     }
