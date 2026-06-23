@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
 
-// 10.0.2.2 é o localhost do teu computador a partir do simulador Android
 const API_URL = 'https://tthheodor-previsao-popularidade.hf.space';
 
 interface PrevisaoResultado {
@@ -16,10 +16,29 @@ export default function Noticias() {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [categoria, setCategoria] = useState('geral');
-  const [diaSemana, setDiaSemana] = useState<number>(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);
-  const [hora, setHora] = useState<string>(new Date().getHours().toString());
+  const [dataPublicacao, setDataPublicacao] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<PrevisaoResultado | null>(null);
+
+  // Estados para feedback manual
+  const [mostrarFeedback, setMostrarFeedback] = useState(false);
+  const [feedbackEnviado, setFeedbackEnviado] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  const formatarData = (date: Date) => {
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
+  const formatarHora = (date: Date) => {
+    const hh = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    return `${hh}:${min}`;
+  };
 
   const submeter = async () => {
     if (!titulo || !descricao) {
@@ -29,6 +48,8 @@ export default function Noticias() {
 
     setLoading(true);
     setResultado(null);
+    setMostrarFeedback(false);
+    setFeedbackEnviado(false);
 
     try {
       // 1. Criar o FormData para a previsão de notícias
@@ -54,32 +75,7 @@ export default function Noticias() {
           previsao: data.previsao,
           sugestoes: data.sugestoes
         });
-        
-        // 2. Chamada automática para /feedback (gravar no histórico do servidor)
-        try {
-          const feedbackPayload = {
-            titulo: titulo,
-            descricao: descricao,
-            categoria: categoria,
-            popularidade_real: 'N/A',
-            previsao_ia: data.previsao
-          };
-
-          console.log('Enviando feedback automático para /feedback...');
-          const feedbackResponse = await fetch(`${API_URL}/feedback`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${userToken}`,
-            },
-            body: JSON.stringify(feedbackPayload),
-          });
-
-          const feedbackData = await feedbackResponse.json();
-          console.log('Resposta de /feedback automática recebida:', feedbackData);
-        } catch (fbError) {
-          console.error('Erro ao registar feedback automático no servidor:', fbError);
-        }
+        setMostrarFeedback(true);
 
         // 3. Salvar no histórico de previsões local
         try {
@@ -111,6 +107,44 @@ export default function Noticias() {
     }
   };
 
+  const enviarFeedback = async (popularidadeReal: 'Alta' | 'Média' | 'Baixa') => {
+    setSubmittingFeedback(true);
+    try {
+      const feedbackPayload = {
+        titulo: titulo,
+        descricao: descricao,
+        categoria: categoria,
+        popularidade_real: popularidadeReal,
+        previsao_ia: resultado?.previsao || ''
+      };
+
+      console.log('Enviando feedback manual para /feedback...', feedbackPayload);
+      const feedbackResponse = await fetch(`${API_URL}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`,
+        },
+        body: JSON.stringify(feedbackPayload),
+      });
+
+      const feedbackData = await feedbackResponse.json();
+      console.log('Resposta de /feedback recebida:', feedbackData);
+      
+      if (feedbackData.sucesso) {
+        setFeedbackEnviado(true);
+        Alert.alert('Sucesso', 'Feedback registado com sucesso!');
+      } else {
+        Alert.alert('Erro', feedbackData.erro || 'Erro ao enviar feedback para o servidor.');
+      }
+    } catch (fbError) {
+      console.error('Erro ao registar feedback manual no servidor:', fbError);
+      Alert.alert('Erro de Ligação', 'Não foi possível ligar ao servidor para submeter o feedback.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.label}>Título da Notícia</Text>
@@ -131,42 +165,55 @@ export default function Noticias() {
         onChangeText={setDescricao}
       />
 
-      <Text style={styles.label}>Dia da Semana de Publicação</Text>
-      <View style={styles.daysSelector}>
-        {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((d, index) => (
-          <TouchableOpacity
-            key={d}
-            style={[
-              styles.dayButton,
-              diaSemana === index && styles.dayButtonActive
-            ]}
-            onPress={() => setDiaSemana(index)}
-            activeOpacity={0.8}
-          >
-            <Text style={[
-              styles.dayButtonText,
-              diaSemana === index && styles.dayButtonTextActive
-            ]}>
-              {d}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <Text style={styles.label}>Data e Hora de Publicação</Text>
+      <View style={styles.pickerRow}>
+        <TouchableOpacity 
+          style={styles.pickerButton} 
+          onPress={() => setShowDatePicker(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.pickerButtonText}>📅 {formatarData(dataPublicacao)}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.pickerButton} 
+          onPress={() => setShowTimePicker(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.pickerButtonText}>⏰ {formatarHora(dataPublicacao)}</Text>
+        </TouchableOpacity>
       </View>
 
-      <Text style={styles.label}>Hora de Publicação (0-23)</Text>
-      <TextInput
-        style={styles.input}
-        keyboardType="numeric"
-        maxLength={2}
-        value={hora}
-        onChangeText={(text) => {
-          const val = parseInt(text);
-          if (text === '' || (val >= 0 && val <= 23)) {
-            setHora(text);
-          }
-        }}
-        placeholder="Ex: 14"
-      />
+      {showDatePicker && (
+        <DateTimePicker
+          value={dataPublicacao}
+          mode="date"
+          display="default"
+          onChange={(event, date) => {
+            setShowDatePicker(false);
+            if (date) {
+              const updated = new Date(dataPublicacao);
+              updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+              setDataPublicacao(updated);
+            }
+          }}
+        />
+      )}
+
+      {showTimePicker && (
+        <DateTimePicker
+          value={dataPublicacao}
+          mode="time"
+          display="default"
+          onChange={(event, date) => {
+            setShowTimePicker(false);
+            if (date) {
+              const updated = new Date(dataPublicacao);
+              updated.setHours(date.getHours(), date.getMinutes());
+              setDataPublicacao(updated);
+            }
+          }}
+        />
+      )}
 
       <TouchableOpacity 
         style={styles.button} 
@@ -199,6 +246,28 @@ export default function Noticias() {
               <Text style={styles.sugestaoText}>{resultado.sugestoes}</Text>
             </View>
           )}
+
+          {mostrarFeedback && (
+            <View style={styles.feedbackContainer}>
+              <Text style={styles.feedbackTitle}>Qual foi a popularidade real da notícia?</Text>
+              {feedbackEnviado ? (
+                <Text style={styles.feedbackSuccessText}>✓ Feedback registado com sucesso!</Text>
+              ) : (
+                <View style={styles.feedbackButtonRow}>
+                  {(['Alta', 'Média', 'Baixa'] as const).map((opt) => (
+                    <TouchableOpacity
+                      key={opt}
+                      style={styles.feedbackOptButton}
+                      onPress={() => enviarFeedback(opt)}
+                      disabled={submittingFeedback}
+                    >
+                      <Text style={styles.feedbackOptButtonText}>{opt}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
         </View>
       )}
     </ScrollView>
@@ -227,6 +296,27 @@ const styles = StyleSheet.create({
   textArea: {
     height: 120,
     textAlignVertical: 'top',
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 12,
+  },
+  pickerButton: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerButtonText: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '600',
   },
   button: {
     backgroundColor: '#1a1a1a',
@@ -262,31 +352,12 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '900',
   },
-  likesCard: {
-    backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
   cardSectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#333',
     marginBottom: 10,
     alignSelf: 'flex-start',
-  },
-  likesValue: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#1a1a1a',
-    marginVertical: 4,
-  },
-  likesSubtitle: {
-    fontSize: 13,
-    color: '#888',
-    textAlign: 'center',
   },
   sugestoesCard: {
     backgroundColor: '#ffffff',
@@ -295,48 +366,47 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
   },
-  sugestaoItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  sugestaoBullet: {
-    fontSize: 16,
-    color: '#1a1a1a',
-    marginRight: 8,
-    lineHeight: 20,
-  },
   sugestaoText: {
     fontSize: 14,
     color: '#444',
-    flex: 1,
     lineHeight: 20,
   },
-  daysSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 6,
-  },
-  dayButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
+  feedbackContainer: {
     backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#eee',
     alignItems: 'center',
   },
-  dayButtonActive: {
+  feedbackTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  feedbackButtonRow: {
+    flexDirection: 'row',
+    gap: 8,
+    width: '100%',
+  },
+  feedbackOptButton: {
+    flex: 1,
+    padding: 12,
     backgroundColor: '#1a1a1a',
-    borderColor: '#1a1a1a',
+    borderRadius: 8,
+    alignItems: 'center',
   },
-  dayButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
-  },
-  dayButtonTextActive: {
+  feedbackOptButtonText: {
     color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  feedbackSuccessText: {
+    color: '#2e7d32',
+    fontWeight: 'bold',
+    fontSize: 15,
+    textAlign: 'center',
   },
 });

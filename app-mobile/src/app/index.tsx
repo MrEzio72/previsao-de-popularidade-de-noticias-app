@@ -17,7 +17,7 @@ export default function Home() {
         onPress={() => router.push('/noticias')}
       >
         <Text style={styles.cardEmoji}>📰</Text>
-        <Text style={styles.cardTitle}>Notícia / Website</Text>
+        <Text style={styles.cardTitle}>Notícia / Portal de Notícias</Text>
         <Text style={styles.cardDesc}>Prever popularidade baseada no título e contexto.</Text>
       </TouchableOpacity>
 

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Image, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
 
 const API_URL = 'https://tthheodor-previsao-popularidade.hf.space';
@@ -15,8 +17,30 @@ export default function Social() {
   const [comentarios, setComentarios] = useState('0');
   const [imagem, setImagem] = useState<string | null>(null);
   
+  const [dataPublicacao, setDataPublicacao] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
+
+  // Estados para feedback manual
+  const [mostrarFeedback, setMostrarFeedback] = useState(false);
+  const [feedbackEnviado, setFeedbackEnviado] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  const formatarData = (date: Date) => {
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
+  const formatarHora = (date: Date) => {
+    const hh = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    return `${hh}:${min}`;
+  };
 
   const escolherImagem = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -40,68 +64,64 @@ export default function Social() {
   const submeter = async () => {
     setLoading(true);
     setResultado(null);
+    setMostrarFeedback(false);
+    setFeedbackEnviado(false);
 
     try {
-      const formData = new FormData();
-      formData.append('seguidores', seguidores);
-      formData.append('likes', likes);
-      formData.append('comentarios', comentarios);
-      formData.append('texto_social', textoPost);
-
+      let data;
       if (imagem) {
-        const imageUri = imagem;
-        const formattedUri = Platform.OS === 'android' && !imageUri.startsWith('file://') 
-          ? `file://${imageUri}` 
-          : imageUri;
-        const filename = formattedUri.split('/').pop() || 'upload.jpg';
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        // Envio nativo de imagem usando FileSystem.uploadAsync para evitar erros no Android
+        console.log('Iniciando upload de imagem via FileSystem.uploadAsync para /prever_social...');
+        
+        let imageUri = imagem;
+        if (Platform.OS === 'android' && !imageUri.startsWith('file://') && !imageUri.startsWith('content://')) {
+          imageUri = `file://${imageUri}`;
+        }
 
-        formData.append('imagem_post', {
-          uri: formattedUri,
-          name: filename,
-          type: type
-        } as any);
+        const uploadResult = await FileSystem.uploadAsync(
+          `${API_URL}/prever_social`,
+          imageUri,
+          {
+            fieldName: 'imagem_post',
+            httpMethod: 'POST',
+            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+            headers: {
+              'Authorization': `Bearer ${userToken}`,
+            },
+            parameters: {
+              seguidores: seguidores,
+              likes: likes,
+              comentarios: comentarios,
+              texto_social: textoPost,
+            },
+          }
+        );
+        console.log('Resposta do FileSystem.uploadAsync recebida com status:', uploadResult.status);
+        data = JSON.parse(uploadResult.body);
+      } else {
+        // Envio tradicional via fetch com FormData (sem cabeçalho Content-Type definido manualmente)
+        console.log('Iniciando envio tradicional para /prever_social (sem imagem)...');
+        const formData = new FormData();
+        formData.append('seguidores', seguidores);
+        formData.append('likes', likes);
+        formData.append('comentarios', comentarios);
+        formData.append('texto_social', textoPost);
+
+        const response = await fetch(`${API_URL}/prever_social`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${userToken}`,
+          },
+          body: formData,
+        });
+        data = await response.json();
       }
 
-      const response = await fetch(`${API_URL}/prever_social`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${userToken}`,
-        },
-        body: formData,
-      });
-
-      const data = await response.json();
+      console.log('Resultado do /prever_social:', data);
       
       if (data.sucesso) {
         setResultado(data);
-        
-        // Chamada automática para o feedback (para gravar no histórico do servidor)
-        try {
-          const feedbackPayload = {
-            texto_post: textoPost,
-            seguidores: parseInt(seguidores) || 0,
-            likes: parseInt(likes) || 0,
-            comentarios: parseInt(comentarios) || 0,
-            popularidade_real: 'N/A',
-            previsao_ia: data.previsao
-          };
-
-          const feedbackResponse = await fetch(`${API_URL}/feedback`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${userToken}`,
-            },
-            body: JSON.stringify(feedbackPayload),
-          });
-
-          const feedbackData = await feedbackResponse.json();
-          console.log('Feedback automático guardado:', feedbackData);
-        } catch (fbError) {
-          console.error('Erro ao registar feedback automático no servidor:', fbError);
-        }
+        setMostrarFeedback(true);
         
         // Salvar no histórico de previsões local
         try {
@@ -137,6 +157,45 @@ export default function Social() {
       Alert.alert('Erro de Ligação', 'Não foi possível ligar ao servidor. Garante que o servidor Flask está a correr na porta 7860.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const enviarFeedback = async (popularidadeReal: 'Alta' | 'Média' | 'Baixa') => {
+    setSubmittingFeedback(true);
+    try {
+      const feedbackPayload = {
+        texto_post: textoPost,
+        seguidores: parseInt(seguidores) || 0,
+        likes: parseInt(likes) || 0,
+        comentarios: parseInt(comentarios) || 0,
+        popularidade_real: popularidadeReal,
+        previsao_ia: resultado?.previsao || ''
+      };
+
+      console.log('Enviando feedback manual de redes sociais para /feedback...', feedbackPayload);
+      const feedbackResponse = await fetch(`${API_URL}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`,
+        },
+        body: JSON.stringify(feedbackPayload),
+      });
+
+      const feedbackData = await feedbackResponse.json();
+      console.log('Resposta de /feedback recebida:', feedbackData);
+      
+      if (feedbackData.sucesso) {
+        setFeedbackEnviado(true);
+        Alert.alert('Sucesso', 'Feedback registado com sucesso!');
+      } else {
+        Alert.alert('Erro', feedbackData.erro || 'Erro ao enviar feedback para o servidor.');
+      }
+    } catch (fbError) {
+      console.error('Erro ao registar feedback manual no servidor:', fbError);
+      Alert.alert('Erro de Ligação', 'Não foi possível ligar ao servidor para submeter o feedback.');
+    } finally {
+      setSubmittingFeedback(false);
     }
   };
 
@@ -199,6 +258,56 @@ export default function Social() {
           />
         </View>
       </View>
+
+      <Text style={styles.label}>Data e Hora de Publicação</Text>
+      <View style={styles.pickerRow}>
+        <TouchableOpacity 
+          style={styles.pickerButton} 
+          onPress={() => setShowDatePicker(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.pickerButtonText}>📅 {formatarData(dataPublicacao)}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.pickerButton} 
+          onPress={() => setShowTimePicker(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.pickerButtonText}>⏰ {formatarHora(dataPublicacao)}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={dataPublicacao}
+          mode="date"
+          display="default"
+          onChange={(event, date) => {
+            setShowDatePicker(false);
+            if (date) {
+              const updated = new Date(dataPublicacao);
+              updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+              setDataPublicacao(updated);
+            }
+          }}
+        />
+      )}
+
+      {showTimePicker && (
+        <DateTimePicker
+          value={dataPublicacao}
+          mode="time"
+          display="default"
+          onChange={(event, date) => {
+            setShowTimePicker(false);
+            if (date) {
+              const updated = new Date(dataPublicacao);
+              updated.setHours(date.getHours(), date.getMinutes());
+              setDataPublicacao(updated);
+            }
+          }}
+        />
+      )}
 
       <Text style={styles.label}>Imagem do Post (Opcional)</Text>
       <TouchableOpacity style={styles.imagePicker} onPress={escolherImagem}>
@@ -264,6 +373,28 @@ export default function Social() {
               ))}
             </View>
           )}
+
+          {mostrarFeedback && (
+            <View style={styles.feedbackContainer}>
+              <Text style={styles.feedbackTitle}>Qual foi a popularidade real da publicação?</Text>
+              {feedbackEnviado ? (
+                <Text style={styles.feedbackSuccessText}>✓ Feedback registado com sucesso!</Text>
+              ) : (
+                <View style={styles.feedbackButtonRow}>
+                  {(['Alta', 'Média', 'Baixa'] as const).map((opt) => (
+                    <TouchableOpacity
+                      key={opt}
+                      style={styles.feedbackOptButton}
+                      onPress={() => enviarFeedback(opt === 'Média' ? 'Média' : opt)}
+                      disabled={submittingFeedback}
+                    >
+                      <Text style={styles.feedbackOptButtonText}>{opt}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
         </View>
       )}
     </ScrollView>
@@ -294,6 +425,27 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 16,
     marginBottom: 16,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 12,
+  },
+  pickerButton: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerButtonText: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '600',
   },
   platformSelector: {
     flexDirection: 'row',
@@ -478,5 +630,43 @@ const styles = StyleSheet.create({
     color: '#444',
     flex: 1,
     lineHeight: 20,
-  }
+  },
+  feedbackContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#eee',
+    alignItems: 'center',
+  },
+  feedbackTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  feedbackButtonRow: {
+    flexDirection: 'row',
+    gap: 8,
+    width: '100%',
+  },
+  feedbackOptButton: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  feedbackOptButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  feedbackSuccessText: {
+    color: '#2e7d32',
+    fontWeight: 'bold',
+    fontSize: 15,
+    textAlign: 'center',
+  },
 });

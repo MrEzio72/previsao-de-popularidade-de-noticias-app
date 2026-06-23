@@ -69,7 +69,7 @@ function RootLayoutNav() {
             )
           }} 
         />
-        <Stack.Screen name="noticias" options={{ title: 'Prever Notícia' }} />
+        <Stack.Screen name="noticias" options={{ title: 'Prever Notícia / Portal de Notícias' }} />
         <Stack.Screen name="social" options={{ title: 'Prever post de uma rede social' }} />
         <Stack.Screen name="historico" options={{ title: 'Histórico de Previsões' }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
