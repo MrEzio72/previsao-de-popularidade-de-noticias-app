@@ -20,6 +20,8 @@ export default function Social() {
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
 
+  const temImagem = resultado ? (resultado.has_image || (imagem !== null && resultado.brilho !== undefined)) : false;
+
   // Estados para feedback manual
   const [mostrarFeedback, setMostrarFeedback] = useState(false);
   const [feedbackEnviado, setFeedbackEnviado] = useState(false);
@@ -292,10 +294,7 @@ export default function Social() {
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.buttonText}>Prever Popularidade</Text>
-        )}
-      </TouchableOpacity>
-
-      {resultado && (
+        )}      {resultado && (
         <View style={styles.resultsContainer}>
           <View style={styles.resultCard}>
             <Text style={styles.resultLabel}>Previsão do Modelo:</Text>
@@ -307,37 +306,18 @@ export default function Social() {
               {resultado.previsao ? resultado.previsao.charAt(0).toUpperCase() + resultado.previsao.slice(1).toLowerCase() : ''}
             </Text>
             
+            <Text style={[styles.iaInfo, { marginBottom: 12 }]}>Motor Visual: {resultado.iaVisual || resultado.ia_visual}</Text>
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{resultado.has_image ? resultado.rostos : 'N/A'}</Text>
+                <Text style={styles.statValue}>{temImagem ? resultado.rostos : 'N/A'}</Text>
                 <Text style={styles.statLabel}>Rostos</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{resultado.has_image ? resultado.brilho : 'N/A'}</Text>
+                <Text style={styles.statValue}>{temImagem ? resultado.brilho : 'N/A'}</Text>
                 <Text style={styles.statLabel}>Brilho</Text>
               </View>
             </View>
-            <Text style={styles.iaInfo}>Motor Visual: {resultado.iaVisual || resultado.ia_visual}</Text>
           </View>
-
-          {resultado.contexto_ia && (
-            <View style={styles.likesCard}>
-              <Text style={styles.cardSectionTitle}>📈 Análise de Contexto e Likes</Text>
-              <Text style={styles.contextText}>{resultado.contexto_ia}</Text>
-            </View>
-          )}
-
-          {resultado.sugestoes && Array.isArray(resultado.sugestoes) && resultado.sugestoes.length > 0 && (
-            <View style={styles.sugestoesCard}>
-              <Text style={styles.cardSectionTitle}>💡 Sugestões da IA</Text>
-              {resultado.sugestoes.map((sug: string, idx: number) => (
-                <View key={idx} style={styles.sugestaoItem}>
-                  <Text style={styles.sugestaoBullet}>•</Text>
-                  <Text style={styles.sugestaoText}>{sug}</Text>
-                </View>
-              ))}
-            </View>
-          )}
 
           {mostrarFeedback && (
             <View style={styles.feedbackContainer}>
@@ -358,6 +338,25 @@ export default function Social() {
                   ))}
                 </View>
               )}
+            </View>
+          )}
+
+          {resultado.contexto_ia && (
+            <View style={styles.likesCard}>
+              <Text style={styles.cardSectionTitle}>📈 Análise de Contexto e Likes</Text>
+              <Text style={styles.contextText}>{resultado.contexto_ia}</Text>
+            </View>
+          )}
+
+          {resultado.sugestoes && Array.isArray(resultado.sugestoes) && resultado.sugestoes.length > 0 && (
+            <View style={styles.sugestoesCard}>
+              <Text style={styles.cardSectionTitle}>💡 Sugestões da IA</Text>
+              {resultado.sugestoes.map((sug: string, idx: number) => (
+                <View key={idx} style={styles.sugestaoItem}>
+                  <Text style={styles.sugestaoBullet}>•</Text>
+                  <Text style={styles.sugestaoText}>{sug}</Text>
+                </View>
+              ))}
             </View>
           )}
         </View>
