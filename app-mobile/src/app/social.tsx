@@ -205,11 +205,11 @@ export default function Social() {
             
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{resultado.rostos}</Text>
+                <Text style={styles.statValue}>{resultado.has_image ? resultado.rostos : 'N/A'}</Text>
                 <Text style={styles.statLabel}>Rostos</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{resultado.brilho}</Text>
+                <Text style={styles.statValue}>{resultado.has_image ? resultado.brilho : 'N/A'}</Text>
                 <Text style={styles.statLabel}>Brilho</Text>
               </View>
             </View>
