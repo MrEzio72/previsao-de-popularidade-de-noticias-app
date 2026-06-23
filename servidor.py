@@ -357,8 +357,12 @@ def guardar_feedback():
         conn = db_connection.get_connection()
         cursor = conn.cursor()
         
-        # Detetar se é notícia
-        is_noticia = 'titulo' in dados or dados.get('tipo') == 'noticia' or dados.get('tipo') == 'noticias'
+        # Detetar se é notícia (damos prioridade ao campo 'tipo' se estiver presente)
+        tipo = dados.get('tipo')
+        if tipo:
+            is_noticia = tipo in ['noticia', 'noticias']
+        else:
+            is_noticia = 'titulo' in dados
         
         if is_noticia:
             if db_id:
