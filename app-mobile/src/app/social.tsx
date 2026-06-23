@@ -87,33 +87,49 @@ export default function Social() {
         );
         console.log('Imagem comprimida criada em:', imagemComprimida.uri);
 
-        const response = await FileSystem.uploadAsync(
-          `${API_URL}/prever_social`,
-          imagemComprimida.uri,
-          {
-            fieldName: 'imagem_post',
-            httpMethod: 'POST',
-            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-            headers: {
-              'Authorization': `Bearer ${userToken}`,
-            },
-            parameters: {
-              seguidores: seguidores,
-              likes: likes,
-              comentarios: comentarios,
-              texto_social: textoPost,
-            },
+        // 1. Garantir o prefixo file:// na imagem comprimida
+        const uriFinal = Platform.OS === 'android' && !imagemComprimida.uri.startsWith('file://') 
+          ? `file://${imagemComprimida.uri}` 
+          : imagemComprimida.uri;
+
+        // 2. Opções blindadas para o Android
+        const uploadOptions = {
+          httpMethod: 'POST', // OBRIGATÓRIO
+          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+          fieldName: 'imagem_post',
+          mimeType: 'image/jpeg', // OBRIGATÓRIO PARA O ANDROID NÃO DESCARTAR O FICHEIRO
+          parameters: {
+            seguidores: seguidores.toString(),
+            likes: likes.toString(),
+            comentarios: comentarios.toString(),
+            texto_social: textoPost
+          },
+          headers: {
+            'Authorization': `Bearer ${userToken}`,
+            'Accept': 'application/json'
+            // ZERO Content-Type aqui.
           }
-        );
+        };
 
-        console.log("STATUS CODE:", response.status);
-        console.log("RESPOSTA DO SERVIDOR:", response.body);
+        try {
+          console.log("A iniciar upload para:", `${API_URL}/prever_social`);
+          const response = await FileSystem.uploadAsync(`${API_URL}/prever_social`, uriFinal, uploadOptions as any);
+          
+          console.log("STATUS:", response.status);
+          console.log("RESPOSTA BRUTA:", response.body);
 
-        if (response.status !== 200) {
-          throw new Error(`Erro do Servidor: Status ${response.status}. Detalhe: ${response.body}`);
+          if (response.status !== 200) {
+            throw new Error(`O Servidor devolveu erro ${response.status}: ${response.body}`);
+          }
+
+          data = JSON.parse(response.body);
+        } catch (error: any) {
+          // Isto vai finalmente mostrar o erro real no ecrã do telemóvel
+          Alert.alert("Erro Real de Upload", error.message || JSON.stringify(error));
+          console.error("Erro capturado:", error);
+          setLoading(false);
+          return;
         }
-
-        data = JSON.parse(response.body);
       } else {
         // Envio tradicional via fetch com FormData (sem cabeçalho Content-Type definido manualmente)
         console.log('Iniciando envio tradicional para /prever_social (sem imagem)...');
