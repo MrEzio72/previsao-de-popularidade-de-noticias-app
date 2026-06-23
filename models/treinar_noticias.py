@@ -114,8 +114,8 @@ pipeline.fit(X, y)
 # ==========================================
 # 4. GUARDAR O CÉREBRO
 # ==========================================
-os.makedirs("models", exist_ok=True)
-caminho_modelo = os.path.join("modelo_noticias.pkl")
+os.makedirs(os.path.join(os.path.dirname(__file__)), exist_ok=True)
+caminho_modelo = os.path.join(os.path.dirname(__file__), "modelo_noticias.pkl")
 joblib.dump(pipeline, caminho_modelo)
 
 print(f"✅ SUCESSO! Modelo de Notícias guardado em {caminho_modelo}")

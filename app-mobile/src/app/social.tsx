@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../context/AuthContext';
 
-const API_URL = 'http://10.0.2.2:7860';
+const API_URL = 'https://tthheodor-previsao-popularidade.hf.space';
 
 export default function Social() {
+  const { userToken } = useAuth();
   const [plataforma, setPlataforma] = useState<'Instagram' | 'Facebook'>('Instagram');
   const [textoPost, setTextoPost] = useState('');
   const [seguidores, setSeguidores] = useState('1000');
@@ -17,6 +19,12 @@ export default function Social() {
   const [resultado, setResultado] = useState<any>(null);
 
   const escolherImagem = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria para escolher uma imagem.');
+      return;
+    }
+
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -38,6 +46,7 @@ export default function Social() {
       formData.append('seguidores', seguidores);
       formData.append('likes', likes);
       formData.append('comentarios', comentarios);
+      formData.append('texto_social', textoPost);
 
       if (imagem) {
         const filename = imagem.split('/').pop() || 'upload.jpg';
@@ -51,7 +60,7 @@ export default function Social() {
       const response = await fetch(`${API_URL}/prever_social`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${userToken}`,
         },
         body: formData,
       });
@@ -76,7 +85,9 @@ export default function Social() {
             previsao: data.previsao,
             rostos: data.rostos,
             brilho: data.brilho,
-            iaVisual: data.ia_visual === 'Total' ? 'Total' : 'Lite (OpenCV)'
+            iaVisual: data.ia_visual === 'Total' ? 'Total' : 'Lite (OpenCV)',
+            contexto_ia: data.contexto_ia,
+            sugestoes: data.sugestoes
           };
           const historicoSalvo = await AsyncStorage.getItem('historico_previsoes');
           const historico = historicoSalvo ? JSON.parse(historicoSalvo) : [];
@@ -178,26 +189,47 @@ export default function Social() {
       </TouchableOpacity>
 
       {resultado && (
-        <View style={styles.resultCard}>
-          <Text style={styles.resultLabel}>Previsão do Modelo:</Text>
-          <Text style={[
-            styles.resultValue, 
-            resultado.previsao === 'Alta' ? {color: '#2e7d32'} : resultado.previsao === 'Baixa' ? {color: '#c62828'} : {color: '#f57c00'}
-          ]}>
-            {resultado.previsao}
-          </Text>
-          
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{resultado.rostos}</Text>
-              <Text style={styles.statLabel}>Rostos</Text>
+        <View style={styles.resultsContainer}>
+          <View style={styles.resultCard}>
+            <Text style={styles.resultLabel}>Previsão do Modelo:</Text>
+            <Text style={[
+              styles.resultValue, 
+              resultado.previsao === 'Alta' ? {color: '#2e7d32'} : resultado.previsao === 'Baixa' ? {color: '#c62828'} : {color: '#f57c00'}
+            ]}>
+              {resultado.previsao}
+            </Text>
+            
+            <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{resultado.rostos}</Text>
+                <Text style={styles.statLabel}>Rostos</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{resultado.brilho}</Text>
+                <Text style={styles.statLabel}>Brilho</Text>
+              </View>
             </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{resultado.brilho}</Text>
-              <Text style={styles.statLabel}>Brilho</Text>
-            </View>
+            <Text style={styles.iaInfo}>Motor Visual: {resultado.iaVisual || resultado.ia_visual}</Text>
           </View>
-          <Text style={styles.iaInfo}>Motor Visual: {resultado.ia_visual}</Text>
+
+          {resultado.contexto_ia && (
+            <View style={styles.likesCard}>
+              <Text style={styles.cardSectionTitle}>📈 Análise de Contexto e Likes</Text>
+              <Text style={styles.contextText}>{resultado.contexto_ia}</Text>
+            </View>
+          )}
+
+          {resultado.sugestoes && Array.isArray(resultado.sugestoes) && resultado.sugestoes.length > 0 && (
+            <View style={styles.sugestoesCard}>
+              <Text style={styles.cardSectionTitle}>💡 Sugestões da IA</Text>
+              {resultado.sugestoes.map((sug: string, idx: number) => (
+                <View key={idx} style={styles.sugestaoItem}>
+                  <Text style={styles.sugestaoBullet}>•</Text>
+                  <Text style={styles.sugestaoText}>{sug}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       )}
     </ScrollView>
@@ -290,8 +322,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  resultCard: {
+  resultsContainer: {
     marginTop: 30,
+    gap: 16,
+    marginBottom: 40,
+  },
+  resultCard: {
     padding: 24,
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -342,5 +378,71 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#aaa',
     fontStyle: 'italic',
+  },
+  likesCard: {
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  contextText: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  cardSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+  },
+  likesValue: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    marginVertical: 4,
+  },
+  likesSubtitle: {
+    fontSize: 13,
+    color: '#888',
+    textAlign: 'center',
+  },
+  sugestoesCard: {
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  sugestaoItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  sugestaoBullet: {
+    fontSize: 16,
+    color: '#1a1a1a',
+    marginRight: 8,
+    lineHeight: 20,
+  },
+  sugestaoText: {
+    fontSize: 14,
+    color: '#444',
+    flex: 1,
+    lineHeight: 20,
   }
 });

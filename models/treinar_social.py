@@ -5,17 +5,21 @@ import os
 import requests
 from io import BytesIO
 from sklearn.ensemble import RandomForestClassifier
-from torchvision.models import resnet18, ResNet18_Weights
 
 # Importa a ligação
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from db_connection import get_connection
 
-# Visão Artificial
-import torch
-from torchvision import transforms
-from PIL import Image
+# Visão Artificial (Importação Opcional / Lazy)
+torch_disponivel = False
+try:
+    import torch
+    from torchvision.models import resnet18, ResNet18_Weights
+    from PIL import Image
+    torch_disponivel = True
+except ImportError:
+    pass
 
 def atualizar_modelo():
     print("Acedendo ao Azure SQL para fundir Dados Reais + Feedback Humano...")
@@ -25,17 +29,17 @@ def atualizar_modelo():
         sys.exit(1)
 
     # 1. CARREGAR DADOS
-    # Adicionamos N_Rostos e Brilho_Imagem na query
+    # Adicionamos N_Rostos e Brilho_Imagem na query, e Seguidores como placeholder 0
     query_real = """
-    SELECT Texto_Post, Link_Imagem, Likes, Comentarios, Partilhas, 
+    SELECT Texto_Post, Link_Imagem, Likes, Comentarios, 0 as Seguidores,
            N_Rostos, Brilho_Imagem, Popularidade_Real as Popularidade 
     FROM dbo.Dataset_Social_Real 
     WHERE Avaliado = 1
     """
     
-    # No feedback manual, assumimos valores padrão se não preencheres
+    # No feedback manual, usamos os valores reais de Likes, Comentarios e Seguidores
     query_feedback = """
-    SELECT Texto_Post, '' as Link_Imagem, 0 as Likes, 0 as Comentarios, 0 as Partilhas, 
+    SELECT Texto_Post, '' as Link_Imagem, Likes, Comentarios, Seguidores, 
            0 as N_Rostos, 127 as Brilho_Imagem, Popularidade_Real as Popularidade 
     FROM dbo.Feedback_Social
     """
@@ -60,14 +64,20 @@ def atualizar_modelo():
         return
 
     # 2. CONFIGURAR VISÃO (RESNET18) - Extração de "estilo" da imagem
-    weights = ResNet18_Weights.DEFAULT
-    modelo_visao = resnet18(weights=weights)
-    extrator = torch.nn.Sequential(*list(modelo_visao.children())[:-1])
-    extrator.eval()
-    preprocess = weights.transforms()
+    ia_visual_ativa = False
+    if torch_disponivel:
+        try:
+            weights = ResNet18_Weights.DEFAULT
+            modelo_visao = resnet18(weights=weights)
+            extrator = torch.nn.Sequential(*list(modelo_visao.children())[:-1])
+            extrator.eval()
+            preprocess = weights.transforms()
+            ia_visual_ativa = True
+        except Exception as e:
+            print(f"Erro ao inicializar ResNet18, a usar Modo Lite: {e}")
 
     def extrair_features(url):
-        if not url or str(url) == 'nan' or "http" not in str(url): 
+        if not ia_visual_ativa or not url or str(url) == 'nan' or "http" not in str(url): 
             return np.zeros(512)
         try:
             res = requests.get(url, timeout=5)
@@ -78,13 +88,17 @@ def atualizar_modelo():
         except:
             return np.zeros(512)
 
-    print(f"A processar {len(df)} imagens com ResNet18 (Deep Learning)...")
+    if ia_visual_ativa:
+        print(f"A processar {len(df)} imagens com ResNet18 (Deep Learning)...")
+    else:
+        print(f"Modo Lite: Preenchendo {len(df)} imagens com zeros (Sem ResNet)...")
+        
     features_list = df['Link_Imagem'].apply(extrair_features)
     df_img = pd.DataFrame(features_list.to_list(), index=df.index)
 
     # 3. TREINO - A "Fórmula" da Popularidade
     # Combinamos: Métricas Sociais + Visão Computacional (OpenCV) + Deep Learning (ResNet)
-    colunas_reais = ['Likes', 'Comentarios', 'Partilhas', 'N_Rostos', 'Brilho_Imagem']
+    colunas_reais = ['Likes', 'Comentarios', 'Seguidores', 'N_Rostos', 'Brilho_Imagem']
     
     # X = (5 colunas numéricas) + (512 colunas da ResNet)
     X = pd.concat([df[colunas_reais], df_img], axis=1).fillna(0)

@@ -90,7 +90,7 @@ def atualizar_dados_visuais(post_id, n_rostos, brilho):
     try:
         cursor.execute("""
             UPDATE dbo.Dataset_Social_Real 
-            SET N_Rostos = %d, Brilho_Imagem = %d 
+            SET N_Rostos = %s, Brilho_Imagem = %s 
             WHERE Post_ID_Social = %s
         """, (n_rostos, brilho, str(post_id)))
         conn.commit()
@@ -114,7 +114,7 @@ def salvar_noticias_batch(df):
                     INSERT INTO dbo.Noticias 
                     (Titulo, Descricao, Link, DataPublicacao, Fonte, Categoria, 
                      N_Palavras_Titulo, N_Palavras_Desc, Dia_Semana, Hora, Sentimento, Popularidade_Real)
-                    VALUES (%s, %s, %s, %s, %s, %s, %d, %d, %d, %d, %d, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     row['titulo'], row['descricao'], row['link'], row['data_publicacao'],
                     row['fonte'], row['categoria'], row['n_palavras_titulo'], 
@@ -141,7 +141,7 @@ def salvar_feedback(dados, realidade):
         cursor.execute("""
             INSERT INTO Feedback (Titulo_Input, Descricao_Input, Categoria_Input, N_Palavras_Titulo, 
             N_Palavras_Desc, Sentimento, Dia_Semana, Hora, Popularidade_Real)
-            VALUES (%s, %s, %s, %d, %d, %d, %d, %d, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             titulo, desc, dados.get('categoria', 'geral'),
             len(titulo.split()), len(desc.split()), 
@@ -163,7 +163,7 @@ def salvar_feedback_social(dados, realidade):
             INSERT INTO dbo.Feedback_Social 
             (Texto_Post, Seguidores, Tipo_Post, Categoria, Mes, Dia_Semana, Hora, 
              Pago, N_Hashtags, N_Palavras, Popularidade_Real, Plataforma)
-            VALUES (%s, %d, %s, %d, %d, %d, %d, %d, %d, %d, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             texto, 
             int(dados.get('Seguidores', 0)), 
@@ -246,16 +246,16 @@ def upsert_social_real(p, fonte, plataforma, popularidade, avaliado):
                 horas_passadas = 0
 
             # UPDATE INCLUINDO ROSTOS E BRILHO
-            update_parts = ["Likes = %d", "Comentarios = %d", "Popularidade_Real = %s", "Link_Imagem = %s", "N_Rostos = %d", "Brilho_Imagem = %d"]
+            update_parts = ["Likes = %s", "Comentarios = %s", "Popularidade_Real = %s", "Link_Imagem = %s", "N_Rostos = %s", "Brilho_Imagem = %s"]
             params = [likes, comments, popularidade, img_url, n_rostos, brilho]
 
             if horas_passadas >= 11 and row[2] is None:
-                update_parts.append("Likes_12h = %d"); params.append(likes)
+                update_parts.append("Likes_12h = %s"); params.append(likes)
             if horas_passadas >= 23 and row[3] is None:
-                update_parts.append("Likes_24h = %d"); params.append(likes)
+                update_parts.append("Likes_24h = %s"); params.append(likes)
             if horas_passadas >= 47:
                 if row[4] is None:
-                    update_parts.append("Likes_48h = %d"); params.append(likes)
+                    update_parts.append("Likes_48h = %s"); params.append(likes)
                 update_parts.append("Avaliado = 1")
 
             sql = f"UPDATE dbo.Dataset_Social_Real SET {', '.join(update_parts)} WHERE Post_ID_Social = %s"
@@ -267,7 +267,7 @@ def upsert_social_real(p, fonte, plataforma, popularidade, avaliado):
                 INSERT INTO dbo.Dataset_Social_Real 
                 (Post_ID_Social, Fonte, Plataforma, Texto_Post, Link_Post, Data_Publicacao, 
                  Likes, Comentarios, Partilhas, Popularidade_Real, Data_Recolha, Avaliado, Link_Imagem, N_Rostos, Brilho_Imagem)
-                VALUES (%s, %s, %s, %s, %s, %s, %d, %d, %d, %s, %s, %d, %s, %d, %d)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (post_id, fonte, plataforma, text, link, timestamp, likes, comments, 0, popularidade, datetime.now(), 0, img_url, n_rostos, brilho))
             
         conn.commit()
