@@ -31,22 +31,23 @@ export default function Noticias() {
     setResultado(null);
 
     try {
+      // 1. Criar o FormData para a previsão de notícias
+      const formData = new FormData();
+      formData.append('titulo', titulo);
+      formData.append('descricao', descricao);
+      formData.append('categoria', categoria);
+
+      console.log('Enviando pedido de previsão para /prever...');
       const response = await fetch(`${API_URL}/prever`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${userToken}`,
         },
-        body: JSON.stringify({
-          titulo,
-          descricao,
-          categoria,
-          dia_semana: diaSemana,
-          hora: parseInt(hora) || 0
-        }),
+        body: formData,
       });
 
       const data = await response.json();
+      console.log('Resposta de /prever recebida:', data);
       
       if (data.sucesso) {
         setResultado({
@@ -54,7 +55,33 @@ export default function Noticias() {
           sugestoes: data.sugestoes
         });
         
-        // Salvar no histórico de previsões
+        // 2. Chamada automática para /feedback (gravar no histórico do servidor)
+        try {
+          const feedbackPayload = {
+            titulo: titulo,
+            descricao: descricao,
+            categoria: categoria,
+            popularidade_real: 'N/A',
+            previsao_ia: data.previsao
+          };
+
+          console.log('Enviando feedback automático para /feedback...');
+          const feedbackResponse = await fetch(`${API_URL}/feedback`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${userToken}`,
+            },
+            body: JSON.stringify(feedbackPayload),
+          });
+
+          const feedbackData = await feedbackResponse.json();
+          console.log('Resposta de /feedback automática recebida:', feedbackData);
+        } catch (fbError) {
+          console.error('Erro ao registar feedback automático no servidor:', fbError);
+        }
+
+        // 3. Salvar no histórico de previsões local
         try {
           const novoItem = {
             id: Date.now().toString(),
@@ -71,7 +98,7 @@ export default function Noticias() {
           historico.unshift(novoItem);
           await AsyncStorage.setItem('historico_previsoes', JSON.stringify(historico));
         } catch (e) {
-          console.error("Erro ao guardar no histórico:", e);
+          console.error("Erro ao guardar no histórico local:", e);
         }
       } else {
         Alert.alert('Erro', data.erro || 'Erro ao comunicar com o servidor');
