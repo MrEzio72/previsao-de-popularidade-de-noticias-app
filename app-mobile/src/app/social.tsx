@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Image, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
@@ -49,12 +49,16 @@ export default function Social() {
       formData.append('texto_social', textoPost);
 
       if (imagem) {
-        const filename = imagem.split('/').pop() || 'upload.jpg';
+        let imageUri = imagem;
+        if (Platform.OS === 'android' && !imageUri.startsWith('file://') && !imageUri.startsWith('content://')) {
+          imageUri = `file://${imageUri}`;
+        }
+        const filename = imageUri.split('/').pop() || 'upload.jpg';
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : 'image/jpeg';
 
         formData.append('imagem_post', {
-          uri: imagem,
+          uri: imageUri,
           name: filename,
           type: type
         } as any);
@@ -73,7 +77,33 @@ export default function Social() {
       if (data.sucesso) {
         setResultado(data);
         
-        // Salvar no histórico de previsões
+        // Chamada automática para o feedback (para gravar no histórico do servidor)
+        try {
+          const feedbackPayload = {
+            texto_post: textoPost,
+            seguidores: parseInt(seguidores) || 0,
+            likes: parseInt(likes) || 0,
+            comentarios: parseInt(comentarios) || 0,
+            popularidade_real: 'N/A',
+            previsao_ia: data.previsao
+          };
+
+          const feedbackResponse = await fetch(`${API_URL}/feedback`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${userToken}`,
+            },
+            body: JSON.stringify(feedbackPayload),
+          });
+
+          const feedbackData = await feedbackResponse.json();
+          console.log('Feedback automático guardado:', feedbackData);
+        } catch (fbError) {
+          console.error('Erro ao registar feedback automático no servidor:', fbError);
+        }
+        
+        // Salvar no histórico de previsões local
         try {
           const novoItem = {
             id: Date.now().toString(),
@@ -97,7 +127,7 @@ export default function Social() {
           historico.unshift(novoItem);
           await AsyncStorage.setItem('historico_previsoes', JSON.stringify(historico));
         } catch (e) {
-          console.error("Erro ao guardar no histórico:", e);
+          console.error("Erro ao guardar no histórico local:", e);
         }
       } else {
         Alert.alert('Erro', data.erro || 'Erro ao comunicar com o servidor');
