@@ -49,16 +49,16 @@ export default function Social() {
       formData.append('texto_social', textoPost);
 
       if (imagem) {
-        let imageUri = imagem;
-        if (Platform.OS === 'android' && !imageUri.startsWith('file://') && !imageUri.startsWith('content://')) {
-          imageUri = `file://${imageUri}`;
-        }
-        const filename = imageUri.split('/').pop() || 'upload.jpg';
+        const imageUri = imagem;
+        const formattedUri = Platform.OS === 'android' && !imageUri.startsWith('file://') 
+          ? `file://${imageUri}` 
+          : imageUri;
+        const filename = formattedUri.split('/').pop() || 'upload.jpg';
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : 'image/jpeg';
 
         formData.append('imagem_post', {
-          uri: imageUri,
+          uri: formattedUri,
           name: filename,
           type: type
         } as any);
