@@ -16,11 +16,27 @@ export default function Noticias() {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [categoria, setCategoria] = useState('geral');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dataPublicacao, setDataPublicacao] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<PrevisaoResultado | null>(null);
+
+  const opcoesCategoria = [
+    { label: 'Nacional / País', value: 'pais' },
+    { label: 'Política', value: 'politica' },
+    { label: 'Economia', value: 'economia' },
+    { label: 'Cultura', value: 'cultura' },
+    { label: 'Desporto', value: 'desporto' },
+    { label: 'Geral', value: 'geral' },
+  ];
+
+  const obterLabelCategoria = (val: string) => {
+    const found = opcoesCategoria.find(o => o.value === val);
+    return found ? found.label : 'Geral';
+  };
+
 
   // Estados para feedback manual
   const [mostrarFeedback, setMostrarFeedback] = useState(false);
@@ -42,21 +58,24 @@ export default function Noticias() {
 
   const handleDateChange = (event: any, date?: Date) => {
     setShowDatePicker(false);
-    if (date) {
+    const selectedDate = date || (event instanceof Date ? event : (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : undefined));
+    if (selectedDate) {
       const updated = new Date(dataPublicacao);
-      updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+      updated.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
       setDataPublicacao(updated);
     }
   };
 
   const handleTimeChange = (event: any, date?: Date) => {
     setShowTimePicker(false);
-    if (date) {
+    const selectedDate = date || (event instanceof Date ? event : (event?.nativeEvent?.timestamp ? new Date(event.nativeEvent.timestamp) : undefined));
+    if (selectedDate) {
       const updated = new Date(dataPublicacao);
-      updated.setHours(date.getHours(), date.getMinutes());
+      updated.setHours(selectedDate.getHours(), selectedDate.getMinutes());
       setDataPublicacao(updated);
     }
   };
+
 
   const submeter = async () => {
     if (!titulo || !descricao) {
@@ -102,9 +121,8 @@ export default function Noticias() {
             tipo: 'noticias',
             data: new Date().toLocaleString('pt-PT'),
             titulo,
-            descricao,
-            categoria,
-            previsao: data.previsao,
+            detalhe: `Categoria: ${obterLabelCategoria(categoria)}`,
+            previsao_ia: data.previsao,
             sugestoes: data.sugestoes
           };
           const historicoSalvo = await AsyncStorage.getItem('historico_previsoes');
@@ -183,22 +201,69 @@ export default function Noticias() {
         onChangeText={setDescricao}
       />
 
-      <Text style={styles.label}>Data e Hora de Publicação</Text>
-      <View style={styles.pickerRow}>
-        <TouchableOpacity 
-          style={styles.pickerButton} 
-          onPress={() => setShowDatePicker(true)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.pickerButtonText}>📅 {formatarData(dataPublicacao)}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.pickerButton} 
-          onPress={() => setShowTimePicker(true)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.pickerButtonText}>⏰ {formatarHora(dataPublicacao)}</Text>
-        </TouchableOpacity>
+      <View style={styles.editorialCard}>
+        <Text style={styles.sectionTitle}>Contexto Editorial</Text>
+        
+        <Text style={styles.fieldLabel}>CATEGORIA</Text>
+        <View style={styles.dropdownContainer}>
+          <TouchableOpacity 
+            style={[styles.dropdownHeader, dropdownOpen && styles.dropdownHeaderActive]} 
+            onPress={() => setDropdownOpen(!dropdownOpen)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.dropdownHeaderText}>{obterLabelCategoria(categoria)}</Text>
+            <Text style={styles.dropdownChevron}>{dropdownOpen ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+          
+          {dropdownOpen && (
+            <View style={styles.dropdownList}>
+              {opcoesCategoria.map((opcao) => (
+                <TouchableOpacity
+                  key={opcao.value}
+                  style={[
+                    styles.dropdownItem,
+                    categoria === opcao.value && styles.dropdownItemActive
+                  ]}
+                  onPress={() => {
+                    setCategoria(opcao.value);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.dropdownItemText,
+                    categoria === opcao.value && styles.dropdownItemTextActive
+                  ]}>
+                    {opcao.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.row}>
+          <View style={styles.flex1}>
+            <Text style={styles.fieldLabel}>DATA</Text>
+            <TouchableOpacity 
+              style={styles.pickerButton} 
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.pickerButtonText}>📅 {formatarData(dataPublicacao)}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ width: 12 }} />
+          <View style={styles.flex1}>
+            <Text style={styles.fieldLabel}>HORA</Text>
+            <TouchableOpacity 
+              style={styles.pickerButton} 
+              onPress={() => setShowTimePicker(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.pickerButtonText}>⏰ {formatarHora(dataPublicacao)}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
 
       {showDatePicker && (
@@ -207,8 +272,6 @@ export default function Noticias() {
           mode="date"
           display="default"
           onChange={handleDateChange}
-          onValueChange={handleDateChange}
-          onDismiss={() => setShowDatePicker(false)}
         />
       )}
 
@@ -218,10 +281,9 @@ export default function Noticias() {
           mode="time"
           display="default"
           onChange={handleTimeChange}
-          onValueChange={handleTimeChange}
-          onDismiss={() => setShowTimePicker(false)}
         />
       )}
+
 
       <TouchableOpacity 
         style={styles.button} 
@@ -241,8 +303,8 @@ export default function Noticias() {
             <Text style={styles.resultLabel}>Previsão de Popularidade:</Text>
             <Text style={[
               styles.resultValue, 
-              resultado.previsao?.toLowerCase().trim() === 'alta' ? {color: '#2e7d32'} : 
-              resultado.previsao?.toLowerCase().trim() === 'baixa' ? {color: '#c62828'} : {color: '#f57c00'}
+              (resultado.previsao || '').toLowerCase().trim() === 'alta' ? {color: '#2e7d32'} : 
+              (resultado.previsao || '').toLowerCase().trim() === 'baixa' ? {color: '#c62828'} : {color: '#f57c00'}
             ]}>
               {resultado.previsao ? resultado.previsao.charAt(0).toUpperCase() + resultado.previsao.slice(1).toLowerCase() : ''}
             </Text>
@@ -305,19 +367,103 @@ const styles = StyleSheet.create({
     height: 120,
     textAlignVertical: 'top',
   },
-  pickerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  editorialCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#eee',
     marginBottom: 20,
-    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  pickerButton: {
-    flex: 1,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#888',
+    letterSpacing: 1,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  dropdownContainer: {
+    marginBottom: 16,
+    position: 'relative',
+    zIndex: 10,
+  },
+  dropdownHeader: {
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 16,
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dropdownHeaderActive: {
+    borderColor: '#1a1a1a',
+    borderWidth: 1.5,
+  },
+  dropdownHeaderText: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '500',
+  },
+  dropdownChevron: {
+    fontSize: 12,
+    color: '#666',
+  },
+  dropdownList: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginTop: 4,
+    maxHeight: 250,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  dropdownItem: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5f5f5',
+  },
+  dropdownItemActive: {
+    backgroundColor: '#1a1a1a',
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: '#333',
+  },
+  dropdownItemTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  row: {
+    flexDirection: 'row',
+  },
+  flex1: {
+    flex: 1,
+  },
+  pickerButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
