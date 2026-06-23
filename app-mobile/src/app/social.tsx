@@ -294,7 +294,10 @@ export default function Social() {
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.buttonText}>Prever Popularidade</Text>
-        )}      {resultado && (
+        )}
+      </TouchableOpacity>
+
+      {resultado && (
         <View style={styles.resultsContainer}>
           <View style={styles.resultCard}>
             <Text style={styles.resultLabel}>Previsão do Modelo:</Text>
