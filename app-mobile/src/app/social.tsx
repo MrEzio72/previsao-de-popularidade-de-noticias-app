@@ -291,13 +291,26 @@ export default function Social() {
       </View>
 
       <Text style={styles.label}>Imagem do Post (Opcional)</Text>
-      <TouchableOpacity style={styles.imagePicker} onPress={escolherImagem}>
+      <View style={styles.imagePickerContainer}>
         {imagem ? (
-          <Image source={{ uri: imagem }} style={styles.imagePreview} />
+          <View style={styles.imageWrapper}>
+            <TouchableOpacity style={styles.imageClickable} onPress={escolherImagem} activeOpacity={0.9}>
+              <Image source={{ uri: imagem }} style={styles.imagePreview} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.clearImageButton} 
+              onPress={() => setImagem(null)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.clearImageText}>✕</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
-          <Text style={styles.imagePickerText}>📷 Tocar para escolher imagem</Text>
+          <TouchableOpacity style={styles.imagePicker} onPress={escolherImagem}>
+            <Text style={styles.imagePickerText}>📷 Tocar para escolher imagem</Text>
+          </TouchableOpacity>
         )}
-      </TouchableOpacity>
+      </View>
 
       <TouchableOpacity 
         style={styles.button} 
@@ -467,7 +480,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
     overflow: 'hidden',
   },
   imagePickerText: {
@@ -477,6 +489,38 @@ const styles = StyleSheet.create({
   imagePreview: {
     width: '100%',
     height: '100%',
+  },
+  imagePickerContainer: {
+    marginBottom: 24,
+  },
+  imageWrapper: {
+    height: 150,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  imageClickable: {
+    width: '100%',
+    height: '100%',
+  },
+  clearImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  clearImageText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   button: {
     backgroundColor: '#1a1a1a',

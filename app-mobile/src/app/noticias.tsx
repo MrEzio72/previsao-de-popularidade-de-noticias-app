@@ -40,6 +40,24 @@ export default function Noticias() {
     return `${hh}:${min}`;
   };
 
+  const handleDateChange = (event: any, date?: Date) => {
+    setShowDatePicker(false);
+    if (date) {
+      const updated = new Date(dataPublicacao);
+      updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+      setDataPublicacao(updated);
+    }
+  };
+
+  const handleTimeChange = (event: any, date?: Date) => {
+    setShowTimePicker(false);
+    if (date) {
+      const updated = new Date(dataPublicacao);
+      updated.setHours(date.getHours(), date.getMinutes());
+      setDataPublicacao(updated);
+    }
+  };
+
   const submeter = async () => {
     if (!titulo || !descricao) {
       Alert.alert('Erro', 'Por favor preenche o título e a descrição.');
@@ -188,14 +206,9 @@ export default function Noticias() {
           value={dataPublicacao}
           mode="date"
           display="default"
-          onChange={(event, date) => {
-            setShowDatePicker(false);
-            if (date) {
-              const updated = new Date(dataPublicacao);
-              updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-              setDataPublicacao(updated);
-            }
-          }}
+          onChange={handleDateChange}
+          onValueChange={handleDateChange}
+          onDismiss={() => setShowDatePicker(false)}
         />
       )}
 
@@ -204,14 +217,9 @@ export default function Noticias() {
           value={dataPublicacao}
           mode="time"
           display="default"
-          onChange={(event, date) => {
-            setShowTimePicker(false);
-            if (date) {
-              const updated = new Date(dataPublicacao);
-              updated.setHours(date.getHours(), date.getMinutes());
-              setDataPublicacao(updated);
-            }
-          }}
+          onChange={handleTimeChange}
+          onValueChange={handleTimeChange}
+          onDismiss={() => setShowTimePicker(false)}
         />
       )}
 
