@@ -4,7 +4,6 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
 
 const API_URL = 'https://tthheodor-previsao-popularidade.hf.space';
@@ -17,10 +16,6 @@ export default function Social() {
   const [likes, setLikes] = useState('0');
   const [comentarios, setComentarios] = useState('0');
   const [imagem, setImagem] = useState<string | null>(null);
-  
-  const [dataPublicacao, setDataPublicacao] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
@@ -29,19 +24,6 @@ export default function Social() {
   const [mostrarFeedback, setMostrarFeedback] = useState(false);
   const [feedbackEnviado, setFeedbackEnviado] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
-
-  const formatarData = (date: Date) => {
-    const dd = String(date.getDate()).padStart(2, '0');
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const yyyy = date.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  };
-
-  const formatarHora = (date: Date) => {
-    const hh = String(date.getHours()).padStart(2, '0');
-    const min = String(date.getMinutes()).padStart(2, '0');
-    return `${hh}:${min}`;
-  };
 
   const escolherImagem = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -291,56 +273,6 @@ export default function Social() {
           />
         </View>
       </View>
-
-      <Text style={styles.label}>Data e Hora de Publicação</Text>
-      <View style={styles.pickerRow}>
-        <TouchableOpacity 
-          style={styles.pickerButton} 
-          onPress={() => setShowDatePicker(true)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.pickerButtonText}>📅 {formatarData(dataPublicacao)}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.pickerButton} 
-          onPress={() => setShowTimePicker(true)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.pickerButtonText}>⏰ {formatarHora(dataPublicacao)}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {showDatePicker && (
-        <DateTimePicker
-          value={dataPublicacao}
-          mode="date"
-          display="default"
-          onChange={(event, date) => {
-            setShowDatePicker(false);
-            if (date) {
-              const updated = new Date(dataPublicacao);
-              updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-              setDataPublicacao(updated);
-            }
-          }}
-        />
-      )}
-
-      {showTimePicker && (
-        <DateTimePicker
-          value={dataPublicacao}
-          mode="time"
-          display="default"
-          onChange={(event, date) => {
-            setShowTimePicker(false);
-            if (date) {
-              const updated = new Date(dataPublicacao);
-              updated.setHours(date.getHours(), date.getMinutes());
-              setDataPublicacao(updated);
-            }
-          }}
-        />
-      )}
 
       <Text style={styles.label}>Imagem do Post (Opcional)</Text>
       <TouchableOpacity style={styles.imagePicker} onPress={escolherImagem}>
